@@ -61,10 +61,15 @@ class JsoupNetworkCall(
             if (openGraphResult.title.isNullOrEmpty()) {
                 openGraphResult.title = doc.title()
             }
+
             if (openGraphResult.description.isNullOrEmpty()) {
-                val docSelection = doc.select(DOC_SELECT_DESCRIPTION)
-                openGraphResult.description = docSelection.firstOrNull()?.attr("content") ?: ""
+                openGraphResult.description = doc.extractDescriptionNotFromOg()
             }
+
+            if (openGraphResult.image.isNullOrEmpty()) {
+                openGraphResult.image = doc.extractImageNotFromPropertyOg()
+            }
+            
             if (openGraphResult.url.isNullOrEmpty()) {
                 openGraphResult.url = getBaseUrl(url)
             }
@@ -76,14 +81,63 @@ class JsoupNetworkCall(
         return openGraphResult
     }
 
+    
+    private fun Document.extractDescriptionNotFromOg(): String {
+        var result: String? = select(DOC_SELECT_DESCRIPTION_1)
+            .firstOrNull()
+            ?.attr(CONTENT_KEY) ?: ""
+
+
+        if (result.isNullOrEmpty()) {
+            result = select(DOC_SELECT_DESCRIPTION_2)
+                .firstOrNull()
+                ?.attr(CONTENT_KEY) ?: ""
+        }
+        return result
+    }
+
+    private fun Document.extractImageNotFromPropertyOg(): String? {
+        var result: String? = select("meta[name=$OG_IMAGE]")
+            .firstOrNull()
+            ?.attr(OPEN_GRAPH_KEY)
+
+        if (result.isNullOrEmpty()) {
+            result = select(DOC_SELECT_IMAGE_SRC)
+                .firstOrNull()
+                ?.attr(HREF_KEY)
+        }
+
+        if (result.isNullOrEmpty()) {
+            result = select(DOC_SELECT_TOUCH_ICON)
+                .firstOrNull()
+                ?.attr(HREF_KEY)
+        }
+
+        if (result.isNullOrEmpty()) {
+            result = select(DOC_SELECT_ICON)
+                .firstOrNull()
+                ?.attr(HREF_KEY)
+        }
+
+        return if (result.isNullOrEmpty()) null
+        else resolveUrl(this@extractImageNotFromPropertyOg.baseUri(), result)
+    }
+
     companion object {
         private const val REFERRER = "http://www.google.com"
         private const val DEFAULT_TIMEOUT = 60000
 
         private const val DOC_SELECT_OGTAGS = "meta[property^=og:]"
-        private const val DOC_SELECT_DESCRIPTION = "meta[name=description]"
+        private const val DOC_SELECT_DESCRIPTION_1 = "meta[name=description]"
+        private const val DOC_SELECT_DESCRIPTION_2 = "meta[name=Description]"
 
-        private const val OPEN_GRAPH_KEY = "content"
+        private const val DOC_SELECT_IMAGE_SRC = "link[rel=image_src]"
+        private const val DOC_SELECT_TOUCH_ICON = "link[rel=apple-touch-icon]"
+        private const val DOC_SELECT_ICON = "link[rel=icon]"
+
+        private const val CONTENT_KEY = "content"
+        private const val HREF_KEY = "href"
+        private const val OPEN_GRAPH_KEY = CONTENT_KEY
         private const val PROPERTY = "property"
 
         private const val OG_IMAGE = "og:image"

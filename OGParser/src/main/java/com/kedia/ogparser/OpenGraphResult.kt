@@ -7,4 +7,8 @@ data class OpenGraphResult(
     var image: String? = null,
     var siteName: String? = null,
     var type: String? = null
-)
+) {
+    companion object {
+        val EMPTY = OpenGraphResult()
+    }
+}
